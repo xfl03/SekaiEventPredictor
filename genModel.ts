@@ -1,0 +1,115 @@
+import {readFileSync, writeFileSync} from 'fs';
+import {OutRanking} from "./Struct";
+
+const ranks = [100, 500, 1000, 5000, 10000, 50000, 100000];
+const events = 8;
+
+let dayModel = {};
+let lastModel = {};
+let lastDayModel = {};
+ranks.forEach(it => {
+    console.log(`T${it}`);
+    let daySum = [];
+    let dayCount = [];
+    for (let t = 0; t <= 48; ++t) {
+        daySum.push(0);
+        dayCount.push(0);
+    }
+
+    let lastDaySum = [];
+    let lastDayCount = [];
+    for (let t = 0; t <= 42; ++t) {
+        lastDaySum.push(0);
+        lastDayCount.push(0);
+    }
+
+    let lastSum = [];
+    let lastCount = [];
+    for (let t = 0; t <= 10; ++t) {
+        lastSum.push(0);
+        lastCount.push(0);
+    }
+
+    for (let i = 2; i <= events; ++i) {
+        let data = JSON.parse(readFileSync(`out/out_${i}_${it}.json`, 'utf-8')) as OutRanking
+        let percents = [0];
+        let days = data.dayScores.length;
+        for (let j = 1; j < days; ++j) {
+            percents.push((data.dayScores[j] - data.dayScores[0]) / (data.lastScore - data.dayScores[0]))
+            //percents.push(data.dayScores[j] / data.lastScore * 100)
+        }
+        percents.push(1);
+
+        let delta = [];
+        for (let j = 1; j < percents.length; ++j) {
+            delta.push(percents[j] - percents[j - 1])
+        }
+        //if (days === 8) {
+        console.log(i + " " + days + " " + JSON.stringify(delta));
+        //}
+        let lastDay = delta[delta.length - 1];
+        if (lastDay > 0 && lastDay < 100) {
+            lastSum[days] += lastDay;
+            lastCount[days]++;
+            //console.log(lastCount[days])
+        }
+
+        for (let d = 1; d <= days; ++d) {
+            let halfHours = d === days ? 42 : 48;
+            let t0 = d * 48 - 30;
+
+            let dayStart = data.halfHourScores[t0];
+            let dayEnd = data.halfHourScores[t0 + halfHours] - dayStart;
+            if (dayStart === 0 || dayEnd === 0) continue
+            for (let t = 0; t <= halfHours; ++t) {
+                let score = data.halfHourScores[t0 + t];
+                if (score === 0) continue
+
+                if (d === days) {
+                    lastDaySum[t] += (score - dayStart) / dayEnd;
+                    if (isNaN(lastDaySum[t])) {
+                        console.log(score)
+                    }
+                    lastDayCount[t]++;
+                } else {
+                    daySum[t] += (score - dayStart) / dayEnd;
+                    dayCount[t]++;
+                }
+            }
+        }
+    }
+
+    let dayPercents = []
+    for (let t = 0; t <= 48; ++t) {
+        dayPercents.push(daySum[t] / dayCount[t])
+        //console.log(daySum[t] / dayCount[t] * 100)
+    }
+    dayModel[it] = dayPercents;
+
+
+    let lastDayPercents = []
+    for (let t = 0; t <= 42; ++t) {
+        lastDayPercents.push(lastDaySum[t] / lastDayCount[t])
+        //console.log(lastDaySum[t] / lastDayCount[t] * 100)
+    }
+    lastDayModel[it] = dayPercents;
+
+    let lastPercents = []
+    for (let t = 0; t <= 10; ++t) {
+        if (lastCount[t] === 0) {
+            lastPercents.push(0);
+            continue;
+        }
+        //console.log(t+" "+lastCount[t])
+        lastPercents.push(lastSum[t] / lastCount[t])
+    }
+    lastModel[it] = lastPercents;
+})
+
+let outModel = {
+    dayPeriod: dayModel,
+    lastDay: lastModel,
+    lastDayPeriod: lastDayModel,
+}
+
+writeFileSync("model.json", JSON.stringify(outModel, null, 4))
