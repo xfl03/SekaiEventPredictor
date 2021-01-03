@@ -8,7 +8,7 @@ const ranks = [100, 500, 1000, 5000, 10000, 50000, 100000];
 
 function getHalfTime(time: Date) {
     let half = (time.getHours() + 1) * 2 + (time.getMinutes() === 0 ? 0 : 1)
-    return half > 48 ? half - 48 : half;
+    return half >= 48 ? half - 48 : half;
 }
 
 //Model
@@ -21,12 +21,14 @@ async function getScores(rank: number) {
 
     //Process time and sort
     scores.forEach(it => it.timestamp = new Date(it.timestamp.valueOf()));
-    scores = scores.sort((a, b) => a.timestamp.valueOf() - b.timestamp.valueOf());
 
     //Remove illegal data
     scores = scores.filter(it => it.timestamp.getMinutes() == 0 || it.timestamp.getMinutes() == 30)
+    scores = scores.sort((a, b) => a.timestamp.valueOf() - b.timestamp.valueOf());
 
-    return data.data.eventRankings;
+    //console.log(`Got Data: ${rank}`)
+
+    return scores;
 }
 
 function processDayScores(obj: EventRanking[]) {
@@ -76,7 +78,6 @@ function processLSE(today: number[], target: number[]) {
 }
 
 async function predict(rank: number) {
-    console.log(`T${rank}`)
 
     //Get scores
     let scores = await getScores(rank);
@@ -95,25 +96,30 @@ async function predict(rank: number) {
     //Get today score
     let todayBeginScore = day[day.length - 1];
     let todayScores = processToday(scores);
+    let halfTime = getHalfTime(scores[scores.length - 1].timestamp);
 
     //Get predict
     let isLastDay = day.length === days;
     if (!isLastDay) {
         //Not last day
-        let todayScore = processLSE(todayScores, model["dayPeriod"][rank]);
-        let scorePerNormalDay = (todayBeginScore - day[0] + todayScore) / day.length;
+        let todayProcess = model["dayPeriod"][rank][halfTime];
+        let todayScore = halfTime === 0 ? 0 : processLSE(todayScores, model["dayPeriod"][rank]) * todayProcess;
+        let scorePerNormalDay = (todayBeginScore - day[0] + todayScore) / (day.length - 1 + todayProcess);
         let scoreBeforeLastDay = day[0] + scorePerNormalDay * (days - 1);
         return Math.round(scoreBeforeLastDay / (1 - model["lastDay"][rank][days]));
     } else {
         //Last day
-        let todayScore = processLSE(todayScores, model["lastDayPeriod"][rank]);
+        let todayProcess = model["dayPeriod"][rank][halfTime];
+        let todayScore = processLSE(todayScores, model["lastDayPeriod"][rank]) * todayProcess +
+            todayBeginScore / (1 - model["lastDay"][rank][days]) * model["lastDay"][rank][days] * (1 - todayProcess);
         return Math.round(todayBeginScore + todayScore);
     }
 }
 
 async function predictAll() {
     for (const r of ranks) {
-        console.log(await predict(r));
+        let pre = await predict(r);
+        console.log(`T${r} ${pre}`)
     }
 }
 
