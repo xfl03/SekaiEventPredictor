@@ -103,15 +103,21 @@ async function predict(rank: number) {
     if (!isLastDay) {
         //Not last day
         let todayProcess = model["dayPeriod"][rank][halfTime];
-        let todayScore = halfTime === 0 ? 0 : processLSE(todayScores, model["dayPeriod"][rank]) * todayProcess;
-        let scorePerNormalDay = (todayBeginScore - day[0] + todayScore) / (day.length - 1 + todayProcess);
-        let scoreBeforeLastDay = day[0] + scorePerNormalDay * (days - 1);
-        return Math.round(scoreBeforeLastDay / (1 - model["lastDay"][rank][days]));
+        //Predict by today data
+        let todayScore = halfTime === 0 ? 0 : processLSE(todayScores, model["dayPeriod"][rank]);
+        //Weighted mean
+        let scorePerNormalDay = (todayBeginScore - day[0] + todayScore * todayProcess) / (day.length - 1 + todayProcess);
+        let scoreNormalDays = scorePerNormalDay * (days - 1);
+        return Math.round(day[0] + scoreNormalDays / (1 - model["lastDay"][rank][days]));
     } else {
         //Last day
-        let todayProcess = model["dayPeriod"][rank][halfTime];
-        let todayScore = processLSE(todayScores, model["lastDayPeriod"][rank]) * todayProcess +
-            todayBeginScore / (1 - model["lastDay"][rank][days]) * model["lastDay"][rank][days] * (1 - todayProcess);
+        let todayProcess = model["lastDayPeriod"][rank][halfTime];
+        //Predict by past days
+        let todayScorePastPredict = (todayBeginScore - day[0]) / (1 - model["lastDay"][rank][days]) * model["lastDay"][rank][days];
+        //Predict by today data
+        let todayScoreNowPredict = processLSE(todayScores, model["lastDayPeriod"][rank]);
+        //Weighted mean
+        let todayScore = todayScoreNowPredict * todayProcess + todayScorePastPredict * (1 - todayProcess);
         return Math.round(todayBeginScore + todayScore);
     }
 }
