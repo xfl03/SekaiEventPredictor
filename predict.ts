@@ -23,7 +23,7 @@ async function getScores(rank: number) {
     scores.forEach(it => it.timestamp = new Date(it.timestamp.valueOf()));
 
     //Remove illegal data
-    scores = scores.filter(it => it.timestamp.getMinutes() == 0 || it.timestamp.getMinutes() == 30)
+    scores = scores.filter(it => it.timestamp.getMinutes() === 0 || it.timestamp.getMinutes() === 30)
     scores = scores.sort((a, b) => a.timestamp.valueOf() - b.timestamp.valueOf());
 
     //console.log(`Got Data: ${rank}`)
@@ -46,9 +46,10 @@ function processToday(obj: EventRanking[]): number[] {
     })
     let today = [];
     for (let i = 0; i <= 48; ++i) today.push(0);
-    for (let i = start; i < obj.length - 1; ++i) {
+    for (let i = start; i < obj.length; ++i) {
         let it = obj[i];
         today[getHalfTime(it.timestamp)] = it.score - obj[start].score;
+        //console.log(`today ${getHalfTime(it.timestamp)} ${it.score}`)
     }
     return today;
 }
@@ -105,9 +106,12 @@ async function predict(rank: number) {
         let todayProcess = model["dayPeriod"][rank][halfTime];
         //Predict by today data
         let todayScore = halfTime === 0 ? 0 : processLSE(todayScores, model["dayPeriod"][rank]);
+        //console.log(todayScore);
         //Weighted mean
         let scorePerNormalDay = (todayBeginScore - day[0] + todayScore * todayProcess) / (day.length - 1 + todayProcess);
+        //console.log(scorePerNormalDay);
         let scoreNormalDays = scorePerNormalDay * (days - 1);
+        //console.log(scoreNormalDays);
         return Math.round(day[0] + scoreNormalDays / (1 - model["lastDay"][rank][days]));
     } else {
         //Last day
@@ -115,7 +119,7 @@ async function predict(rank: number) {
         //Predict by past days
         let todayScorePastPredict = (todayBeginScore - day[0]) / (1 - model["lastDay"][rank][days]) * model["lastDay"][rank][days];
         //Predict by today data
-        let todayScoreNowPredict = processLSE(todayScores, model["lastDayPeriod"][rank]);
+        let todayScoreNowPredict = halfTime === 0 ? 0 : processLSE(todayScores, model["lastDayPeriod"][rank]);
         //Weighted mean
         let todayScore = todayScoreNowPredict * todayProcess + todayScorePastPredict * (1 - todayProcess);
         return Math.round(todayBeginScore + todayScore);
