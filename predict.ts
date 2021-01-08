@@ -1,9 +1,18 @@
 import axios from 'axios';
 import {EventData, EventRanking} from "./Struct";
-import {readFileSync} from "fs";
+import {readFileSync, writeFileSync} from "fs";
 
-const event = 9;
-const days = 8;
+let event = 9;
+let days = 8;
+
+async function updateEvent() {
+    const response = await axios.get(`https://strapi.sekai.best/sekai-current-event`);
+    //console.log(response.data);
+    event = response.data.eventId;
+    days = Math.floor((response.data.eventJson.aggregateAt - response.data.eventJson.startAt) / 1000 / 3600 / 24);
+    console.log(`Current event ${event}, ${days} days`);
+}
+
 const ranks = [100, 500, 1000, 5000, 10000, 50000, 100000];
 
 function getHalfTime(time: Date) {
@@ -19,7 +28,16 @@ async function getScores(rank: number) {
     let data = response.data as EventData;
     let scores = data.data.eventRankings;
 
+    //Process illeage data (Multi array)
+    if (scores.length > 0 && Array.isArray(scores[0])) {
+        // @ts-ignore
+        scores = scores[0];
+    }
+
     //Process time and sort
+    scores.forEach(it => {
+        if (it.timestamp === undefined) console.log(it);
+    });
     scores.forEach(it => it.timestamp = new Date(it.timestamp.valueOf()));
 
     //Remove illegal data
@@ -54,13 +72,25 @@ function processToday(obj: EventRanking[]): number[] {
     return today;
 }
 
+function processLast(today: number[], last: number): number[] {
+    let count = 0;
+    let lastToday = today.slice();
+    for (let i = 47; i >= 0; --i) {
+        if (count >= last) lastToday[i] = 0;
+        if (lastToday[i] !== 0) count++;
+    }
+    return lastToday;
+}
+
 function getLSE(today: number[], target: number[], predict: number) {
     let sum = 0;
+
     today.forEach((it, i) => {
-        if (it === 0) return
+        if (it === 0 || it === undefined || target.length <= i) return
         let precent = it / predict - target[i];
         sum += precent * precent;
     })
+
     return sum;
 }
 
@@ -99,6 +129,11 @@ async function predict(rank: number) {
     let todayScores = processToday(scores);
     let halfTime = getHalfTime(scores[scores.length - 1].timestamp);
 
+    /*if(rank===50000) {
+        todayScores.forEach(it=>console.log(it))
+        model["lastDayPeriod"][rank].forEach(it=>console.log(it))
+    }*/
+
     //Get predict
     let isLastDay = day.length === days;
     if (!isLastDay) {
@@ -114,23 +149,40 @@ async function predict(rank: number) {
         //console.log(scoreNormalDays);
         return Math.round(day[0] + scoreNormalDays / (1 - model["lastDay"][rank][days]));
     } else {
+        //console.log(todayBeginScore);
         //Last day
         let todayProcess = model["lastDayPeriod"][rank][halfTime];
-        //Predict by past days
-        let todayScorePastPredict = (todayBeginScore - day[0]) / (1 - model["lastDay"][rank][days]) * model["lastDay"][rank][days];
+
         //Predict by today data
         let todayScoreNowPredict = halfTime === 0 ? 0 : processLSE(todayScores, model["lastDayPeriod"][rank]);
-        //Weighted mean
-        let todayScore = todayScoreNowPredict * todayProcess + todayScorePastPredict * (1 - todayProcess);
+        //console.log("Now Predict:" + todayScoreNowPredict);
+        //Predict by last hours data
+        let todayScoreLastPredict = halfTime <= 2 ? todayScoreNowPredict : processLSE(processLast(todayScores, 2), model["lastDayPeriod"][rank])
+        //console.log("Last Predict:" + todayScoreLastPredict);
+        //Weighted mean for today's predict
+        let todayScoreTodayPredict = todayScoreLastPredict * todayProcess
+            + todayScoreNowPredict * (1 - todayProcess);
+
+        //Predict by past days
+        let todayScorePastPredict = (todayBeginScore - day[0]) / (1 - model["lastDay"][rank][days]) * model["lastDay"][rank][days];
+        //console.log("Past Predict:" + todayScorePastPredict);
+
+        //Weighted mean for last day predict
+        let todayScore = todayScoreTodayPredict * Math.min(1, todayProcess * 2)
+            + todayScorePastPredict * Math.max(0, 1 - todayProcess * 2);
         return Math.round(todayBeginScore + todayScore);
     }
 }
 
 async function predictAll() {
+    await updateEvent();
+    let outJson = {};
     for (const r of ranks) {
         let pre = await predict(r);
         console.log(`T${r} ${pre}`)
+        outJson[r] = pre;
     }
+    writeFileSync("out-predict.json", JSON.stringify(outJson));
 }
 
 predictAll()

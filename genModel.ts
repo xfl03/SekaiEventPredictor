@@ -1,8 +1,11 @@
-import {readFileSync, writeFileSync} from 'fs';
+import {readFileSync, writeFileSync, existsSync} from 'fs';
 import {OutRanking} from "./Struct";
 
 const ranks = [100, 500, 1000, 5000, 10000, 50000, 100000];
-const events = 8;
+let events = 8;
+if (existsSync(`lastEndedEventId`)) {
+    events = parseInt(readFileSync(`lastEndedEventId`, 'utf-8'))
+}
 
 let dayModel = {};
 let lastModel = {};
@@ -92,7 +95,7 @@ ranks.forEach(it => {
         lastDayPercents.push(lastDaySum[t] / lastDayCount[t])
         //console.log(lastDaySum[t] / lastDayCount[t] * 100)
     }
-    lastDayModel[it] = dayPercents;
+    lastDayModel[it] = lastDayPercents;
 
     let lastPercents = []
     for (let t = 0; t <= 10; ++t) {

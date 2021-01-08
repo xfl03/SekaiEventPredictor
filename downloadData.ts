@@ -1,6 +1,25 @@
 import axios from 'axios';
-import {writeFileSync, existsSync} from 'fs';
+import {writeFileSync, existsSync, mkdirSync} from 'fs';
 import {execSync} from 'child_process';
+
+let events = 8;
+const ranks = [100, 500, 1000, 5000, 10000, 50000, 100000];
+
+if (!existsSync("data")) mkdirSync("data");
+if (!existsSync("out")) mkdirSync("out");
+
+async function updateEventId() {
+    const response = await axios.get(`https://strapi.sekai.best/sekai-current-event`);
+    let currentEvent = response.data.eventId;
+    if (response.data.eventJson.rankingAnnounceAt > Date.now()) {
+        console.log(`Event ${currentEvent} is running.`)
+        currentEvent--;
+    }
+
+    console.log(`Last ended event: ${currentEvent}`);
+    writeFileSync(`lastEndedEventId`, currentEvent.toString(), 'utf-8');
+    events = currentEvent;
+}
 
 async function downloadData(eventId: number, rankId: number) {
     const response = await axios.get(`https://api.sekai.best/event/${eventId}/rankings/graph?rank=${rankId}`);
@@ -8,10 +27,8 @@ async function downloadData(eventId: number, rankId: number) {
     console.log(`Download ${eventId} ${rankId}`)
 }
 
-const events = 8;
-const ranks = [100, 500, 1000, 5000, 10000, 50000, 100000];
-
 async function downloadAllData() {
+    await updateEventId();
     for (let i = 1; i <= events; ++i) {
         for (const it of ranks) {
             if (!existsSync(`data/data_${i}_${it}.json`)) {
