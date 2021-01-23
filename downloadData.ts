@@ -3,7 +3,7 @@ import {writeFileSync, existsSync, mkdirSync} from 'fs';
 import {execSync} from 'child_process';
 
 let events = 8;
-const ranks = [100, 500, 1000, 5000, 10000, 50000, 100000];
+const ranks = [100, 200, 300, 500, 1000, 2000, 3000, 5000, 10000, 20000, 30000, 50000, 100000];
 
 if (!existsSync("data")) mkdirSync("data");
 if (!existsSync("out")) mkdirSync("out");

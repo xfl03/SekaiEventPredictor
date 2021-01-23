@@ -1,6 +1,7 @@
-import axios from 'axios';
+import axios from "axios";
 import {EventData, EventRanking} from "./Struct";
 import {readFileSync, writeFileSync} from "fs";
+import * as redis from "redis";
 
 let event = 9;
 let days = 8;
@@ -10,14 +11,14 @@ async function updateEvent() {
     //console.log(response.data);
     event = response.data.eventId;
     days = Math.floor((response.data.eventJson.aggregateAt - response.data.eventJson.startAt) / 1000 / 3600 / 24);
-    console.log(`Current event ${event}, +${days} days`);
+    console.log(`Current event ${event}, ${days} days`);
 }
 
 //const ranks = [100, 200, 300, 500, 1000, 2000, 3000, 5000, 10000, 20000, 30000, 50000, 100000];
 const ranks = [100, 500, 1000, 5000, 10000, 50000, 100000];
 
 function getHalfTime(time: Date) {
-    let half = (time.getHours() + 1) * 2 + (time.getMinutes() === 0 ? 0 : 1)
+    let half = (time.getUTCHours() + 9) * 2 + (time.getUTCMinutes() === 0 ? 0 : 1)
     return half >= 48 ? half - 48 : half;
 }
 
@@ -41,7 +42,7 @@ async function getScores(rank: number) {
     scores.forEach(it => it.timestamp = new Date(it.timestamp.valueOf()));
 
     //Remove illegal data
-    scores = scores.filter(it => it.timestamp.getMinutes() === 0 || it.timestamp.getMinutes() === 30)
+    scores = scores.filter(it => it.timestamp.getUTCMinutes() === 0 || it.timestamp.getUTCMinutes() === 30)
     scores = scores.sort((a, b) => a.timestamp.valueOf() - b.timestamp.valueOf());
 
     //console.log(`Got Data: ${rank}`)
@@ -52,7 +53,7 @@ async function getScores(rank: number) {
 function processDayScores(obj: EventRanking[]) {
     let dayPT: number[] = [];
     obj.forEach(it => {
-        if (it.timestamp.getHours() === 23 && it.timestamp.getMinutes() === 0) dayPT.push(it.score);
+        if (it.timestamp.getUTCHours() === 15 && it.timestamp.getUTCMinutes() === 0) dayPT.push(it.score);
     })
     return dayPT;
 }
@@ -60,7 +61,7 @@ function processDayScores(obj: EventRanking[]) {
 function processToday(obj: EventRanking[]): number[] {
     let start = 0;
     obj.forEach((it, i) => {
-        if (it.timestamp.getHours() === 23 && it.timestamp.getMinutes() === 0) start = i;
+        if (it.timestamp.getUTCHours() === 15 && it.timestamp.getUTCMinutes() === 0) start = i;
     })
     let today = [];
     for (let i = 0; i <= 48; ++i) today.push(0);
@@ -178,6 +179,8 @@ async function predict(rank: number) {
     }
 }
 
+const client = redis.createClient(process.env.REDIS_URL);
+
 async function predictAll() {
     await updateEvent();
     let outJson = {};
@@ -186,9 +189,10 @@ async function predictAll() {
         if (pre > 0) {
             console.log(`T${r} ${pre}`)
             outJson[r] = pre;
+            client.set(`predict-${r}`, pre.toString);
         }
     }
-    writeFileSync("out-predict.json", JSON.stringify(outJson));
+    //writeFileSync("out-predict.json", JSON.stringify(outJson));
 }
 
 predictAll()
