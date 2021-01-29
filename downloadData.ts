@@ -1,9 +1,10 @@
 import axios from 'axios';
 import {writeFileSync, existsSync, mkdirSync} from 'fs';
 import {execSync} from 'child_process';
+import {EventData} from "./Struct";
 
 let events = 8;
-const ranks = [100, 200, 300, 500, 1000, 2000, 3000, 5000, 10000, 20000, 30000, 50000, 100000];
+const ranks = [100, 200, 300, 400, 500, 1000, 2000, 3000, 4000, 5000, 10000, 20000, 30000, 40000, 50000, 100000];
 
 if (!existsSync("data")) mkdirSync("data");
 if (!existsSync("out")) mkdirSync("out");
@@ -23,8 +24,23 @@ async function updateEventId() {
 
 async function downloadData(eventId: number, rankId: number) {
     const response = await axios.get(`https://api.sekai.best/event/${eventId}/rankings/graph?rank=${rankId}`);
+    let data = response.data as EventData;
+    let scores = data.data.eventRankings;
+
+    //Process illegal data (Multi array)
+    if (scores.length > 0 && Array.isArray(scores[0])) {
+        console.log(`ERROR while downloading ${eventId} ${rankId}`)
+        return;
+    }
+
+    //Process illegal data (Incorrect event)
+    if (scores.length > 0 && (scores[0].eventId !== eventId || scores[0].rank !== rankId)) {
+        console.log(`ERROR while downloading ${eventId} ${rankId}`)
+        return;
+    }
+
     writeFileSync(`data/data_${eventId}_${rankId}.json`, JSON.stringify(response.data), 'utf-8');
-    console.log(`Download ${eventId} ${rankId}`)
+    console.log(`Downloaded ${eventId} ${rankId}`)
 }
 
 async function downloadAllData() {

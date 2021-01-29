@@ -13,24 +13,32 @@ async function updateEvent() {
     console.log(`Current event ${event}, +${days} days`);
 }
 
+//const ranks = [100, 200, 300, 400, 500, 1000, 2000, 3000, 4000, 5000, 10000, 20000, 30000, 40000, 50000, 100000];
 //const ranks = [100, 200, 300, 500, 1000, 2000, 3000, 5000, 10000, 20000, 30000, 50000, 100000];
-const ranks = [100, 500, 1000, 5000, 10000, 50000, 100000];
+const ranks = [100, 200, 500, 1000, 2000, 5000, 10000, 20000, 50000, 100000];
+
+//const ranks = [100, 500, 1000, 5000, 10000, 50000, 100000];
 
 function getHalfTime(time: Date) {
-    let half = (time.getHours() + 1) * 2 + (time.getMinutes() === 0 ? 0 : 1)
+    let half = (time.getUTCHours() + 9) * 2 + (time.getUTCMinutes() === 0 ? 0 : 1)
     return half >= 48 ? half - 48 : half;
 }
 
 //Model
-const model = JSON.parse(readFileSync("model.json", "utf-8"));
+const model = JSON.parse(readFileSync("predict_models.json", "utf-8"));
 
 async function getScores(rank: number) {
     let response = await axios.get(`https://api.sekai.best/event/${event}/rankings/graph?rank=${rank}`);
     let data = response.data as EventData;
     let scores = data.data.eventRankings;
 
-    //Process illeage data (Multi array)
+    //Process illegal data (Multi array)
     if (scores.length > 0 && Array.isArray(scores[0])) {
+        return [];
+    }
+
+    //Process illegal data (Incorrect event)
+    if (scores.length > 0 && (scores[0].eventId !== event || scores[0].rank !== rank)) {
         return [];
     }
 
@@ -41,7 +49,7 @@ async function getScores(rank: number) {
     scores.forEach(it => it.timestamp = new Date(it.timestamp.valueOf()));
 
     //Remove illegal data
-    scores = scores.filter(it => it.timestamp.getMinutes() === 0 || it.timestamp.getMinutes() === 30)
+    scores = scores.filter(it => it.timestamp.getUTCMinutes() === 0 || it.timestamp.getUTCMinutes() === 30)
     scores = scores.sort((a, b) => a.timestamp.valueOf() - b.timestamp.valueOf());
 
     //console.log(`Got Data: ${rank}`)
@@ -52,7 +60,7 @@ async function getScores(rank: number) {
 function processDayScores(obj: EventRanking[]) {
     let dayPT: number[] = [];
     obj.forEach(it => {
-        if (it.timestamp.getHours() === 23 && it.timestamp.getMinutes() === 0) dayPT.push(it.score);
+        if (it.timestamp.getUTCHours() === 15 && it.timestamp.getUTCMinutes() === 0) dayPT.push(it.score);
     })
     return dayPT;
 }
@@ -60,7 +68,7 @@ function processDayScores(obj: EventRanking[]) {
 function processToday(obj: EventRanking[]): number[] {
     let start = 0;
     obj.forEach((it, i) => {
-        if (it.timestamp.getHours() === 23 && it.timestamp.getMinutes() === 0) start = i;
+        if (it.timestamp.getUTCHours() === 15 && it.timestamp.getUTCMinutes() === 0) start = i;
     })
     let today = [];
     for (let i = 0; i <= 48; ++i) today.push(0);
@@ -112,7 +120,7 @@ async function predict(rank: number) {
 
     //Get scores
     let scores = await getScores(rank);
-    if (scores.length === 0)  {
+    if (scores.length === 0) {
         console.log(`T${rank} Cannot predict: No data`)
         return 0
     }
@@ -181,14 +189,19 @@ async function predict(rank: number) {
 async function predictAll() {
     await updateEvent();
     let outJson = {};
+    let count = 0;
     for (const r of ranks) {
         let pre = await predict(r);
         if (pre > 0) {
             console.log(`T${r} ${pre}`)
             outJson[r] = pre;
+            count++;
         }
     }
-    writeFileSync("out-predict.json", JSON.stringify(outJson));
+
+    if (count > 0) {
+        writeFileSync("out-predict.json", JSON.stringify(outJson));
+    }
 }
 
 predictAll()

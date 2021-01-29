@@ -1,7 +1,7 @@
 import {readFileSync, writeFileSync, existsSync} from 'fs';
 import {OutRanking} from "./Struct";
 
-const ranks = [100, 200, 300, 500, 1000, 2000, 3000, 5000, 10000, 20000, 30000, 50000, 100000];
+const ranks = [100, 200, 300, 400, 500, 1000, 2000, 3000, 4000, 5000, 10000, 20000, 30000, 40000, 50000, 100000];
 let events = 8;
 if (existsSync(`lastEndedEventId`)) {
     events = parseInt(readFileSync(`lastEndedEventId`, 'utf-8'))
@@ -33,6 +33,7 @@ ranks.forEach(it => {
         lastCount.push(0);
     }
 
+    //Process all event data, skip first event
     for (let i = 2; i <= events; ++i) {
         let data = JSON.parse(readFileSync(`out/out_${i}_${it}.json`, 'utf-8')) as OutRanking
         let percents = [0];
@@ -63,7 +64,12 @@ ranks.forEach(it => {
 
             let dayStart = data.halfHourScores[t0];
             let dayEnd = data.halfHourScores[t0 + halfHours] - dayStart;
-            if (dayStart === 0 || dayEnd === 0) continue
+            if (dayStart === 0 || dayEnd === 0 ||
+                dayStart === undefined || dayEnd === undefined ||
+                isNaN(dayStart) || isNaN(dayEnd)) {
+                console.log(`ERROR while processing DAY${d}`)
+                continue
+            }
             for (let t = 0; t <= halfHours; ++t) {
                 let score = data.halfHourScores[t0 + t];
                 if (score === 0) continue
@@ -71,7 +77,7 @@ ranks.forEach(it => {
                 if (d === days) {
                     lastDaySum[t] += (score - dayStart) / dayEnd;
                     if (isNaN(lastDaySum[t])) {
-                        console.log(score)
+                        console.log(`${score} ${dayStart} ${dayEnd}`)
                     }
                     lastDayCount[t]++;
                 } else {
@@ -115,4 +121,4 @@ let outModel = {
     lastDayPeriod: lastDayModel,
 }
 
-writeFileSync("model.json", JSON.stringify(outModel, null, 4))
+writeFileSync("predict_models.json", JSON.stringify(outModel, null, 4))
