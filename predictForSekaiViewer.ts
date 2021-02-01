@@ -21,4 +21,9 @@ async function main() {
     }
 }
 
+export function serverless() {
+    main();
+    return "Finished";
+}
+
 main()

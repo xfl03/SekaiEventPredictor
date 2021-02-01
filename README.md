@@ -31,6 +31,7 @@ ts-node updateForSekaiViewer.ts
 ```
 
 ### Predict
+#### Normal
 ```sh
 ts-node predictForSekaiViewer.ts
 ```

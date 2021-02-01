@@ -1,0 +1,13 @@
+service: sekai-event-predictor
+
+provider:
+  name: kubeless
+  runtime: nodejs10.x
+
+plugins:
+  - serverless-kubeless
+  - serverless-plugin-typescript
+
+functions:
+  predict:
+    handler: predictForSekaiViewer.serverless
