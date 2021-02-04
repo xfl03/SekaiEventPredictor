@@ -2,7 +2,7 @@ service: sekai-event-predictor
 
 provider:
   name: kubeless
-  runtime: nodejs10.x
+  runtime: nodejs14
 
 plugins:
   - serverless-kubeless
@@ -11,3 +11,9 @@ plugins:
 functions:
   predict:
     handler: predictForSekaiViewer.serverless
+    events:
+      - schedule: "*/30 * * * *"
+    environment:
+      REDIS_URL: redis://redis-master.database/
+      MINIO_END_POINT: minio.dnaroma.eu
+      MINIO_BUCKET: sekai-best-assets
