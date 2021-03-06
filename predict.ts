@@ -6,7 +6,6 @@ let debug = false;
 let event = 9;
 let days = 8;
 let eventStartTime = 0;
-let eventDayNow = 0;
 let lastDayEnd = 0;
 
 async function updateEvent() {
@@ -15,7 +14,7 @@ async function updateEvent() {
     event = response.data.eventId;
     eventStartTime = response.data.eventJson.startAt;
     days = Math.floor((response.data.eventJson.aggregateAt - response.data.eventJson.startAt) / 1000 / 3600 / 24);
-    eventDayNow = Math.floor((Date.now() - (response.data.eventJson.startAt - 15 * 3600 * 1000)) / 1000 / 3600 / 24);
+    let eventDayNow = Math.floor((Date.now() - (response.data.eventJson.startAt - 15 * 3600 * 1000)) / 1000 / 3600 / 24);
     if(eventDayNow>days) eventDayNow = days;
     console.log(`Current event ${event}, ${eventDayNow}/${days} days`);
 }
@@ -161,7 +160,7 @@ async function predict(rank: number) {
     }*/
 
     //Get predict
-    let isLastDay = eventDayNow === days;
+    let isLastDay = lastDayEnd === days;
     if (!isLastDay) {
         //Not last day
         if(debug)console.log(`day0:${day[0]}`);
