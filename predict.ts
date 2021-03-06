@@ -2,7 +2,7 @@ import axios from 'axios';
 import {EventData, EventRanking} from "./Struct";
 import {readFileSync, writeFileSync} from "fs";
 
-let debug = true;
+let debug = false;
 let event = 9;
 let days = 8;
 let eventStartTime = 0;
