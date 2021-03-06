@@ -21,11 +21,17 @@ async function main() {
   await downloadModel();
   await predictAll();
 
-  let outJson = JSON.parse(readFileSync(process.env.IS_SERVERLESS ? "/tmp/out-predict.json" : "out-predict.json", "utf-8"));
+  let outJson = JSON.parse(
+    readFileSync(
+      process.env.IS_SERVERLESS ? "/tmp/out-predict.json" : "out-predict.json",
+      "utf-8"
+    )
+  );
   for (const r in outJson) {
     let pre = outJson[r];
     client.set(`predict-${r}`, pre.toString());
   }
+  client.set(`predict-ts`, new Date().getTime());
 }
 
 export async function serverless() {
