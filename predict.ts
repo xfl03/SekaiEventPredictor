@@ -2,16 +2,22 @@ import axios from 'axios';
 import {EventData, EventRanking} from "./Struct";
 import {readFileSync, writeFileSync} from "fs";
 
-let debug = false;
+let debug = true;
 let event = 9;
 let days = 8;
+let eventStartTime = 0;
+let eventDayNow = 0;
+let lastDayEnd = 0;
 
 async function updateEvent() {
     const response = await axios.get(`https://strapi.sekai.best/sekai-current-event`);
     //console.log(response.data);
     event = response.data.eventId;
+    eventStartTime = response.data.eventJson.startAt;
     days = Math.floor((response.data.eventJson.aggregateAt - response.data.eventJson.startAt) / 1000 / 3600 / 24);
-    console.log(`Current event ${event}, +${days} days`);
+    eventDayNow = Math.floor((Date.now() - (response.data.eventJson.startAt - 15 * 3600 * 1000)) / 1000 / 3600 / 24);
+    if(eventDayNow>days) eventDayNow = days;
+    console.log(`Current event ${event}, ${eventDayNow}/${days} days`);
 }
 
 //const ranks = [50, 100, 200, 300, 400, 500, 1000, 2000, 3000, 4000, 5000, 10000, 20000, 30000, 40000, 50000, 100000];
@@ -69,7 +75,10 @@ function processDayScores(obj: EventRanking[]) {
 function processToday(obj: EventRanking[]): number[] {
     let start = 0;
     obj.forEach((it, i) => {
-        if (it.timestamp.getUTCHours() === 15 && it.timestamp.getUTCMinutes() === 0) start = i;
+        if (it.timestamp.getUTCHours() === 15 && it.timestamp.getUTCMinutes() === 0) {
+            start = i;
+            lastDayEnd = Math.floor((it.timestamp.getTime() - (eventStartTime - 15 * 3600 * 1000)) / 1000 / 3600 / 24);
+        }
     })
     let today = [];
     for (let i = 0; i <= 48; ++i) today.push(0);
@@ -152,7 +161,7 @@ async function predict(rank: number) {
     }*/
 
     //Get predict
-    let isLastDay = day.length === days;
+    let isLastDay = eventDayNow === days;
     if (!isLastDay) {
         //Not last day
         if(debug)console.log(`day0:${day[0]}`);
@@ -162,7 +171,7 @@ async function predict(rank: number) {
         let todayScore = halfTime === 0 ? 0 : processLSE(todayScores, model["dayPeriod"][rank]);
         if(debug)console.log(`todayScore:${todayScore}`);
         //Weighted mean
-        let scorePerNormalDay = (todayBeginScore - day[0] + todayScore * todayProcess) / (day.length - 1 + todayProcess);
+        let scorePerNormalDay = (todayBeginScore - day[0] + todayScore * todayProcess) / (lastDayEnd - 1 + todayProcess);
         if(debug)console.log(`scorePerNormalDay:${scorePerNormalDay}`);
         let scoreNormalDays = scorePerNormalDay * (days - 1);
         if(debug)console.log(`scoreNormalDays:${scoreNormalDays}`);
