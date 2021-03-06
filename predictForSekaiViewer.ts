@@ -11,7 +11,7 @@ async function downloadModel() {
     `https://${process.env.MINIO_END_POINT}/${process.env.MINIO_BUCKET}/predict_models.json`
   );
   writeFileSync(
-    "/tmp/predict_models.json",
+    process.env.IS_SERVERLESS ? "/tmp/predict_models.json" : "predict_models.json",
     JSON.stringify(response.data),
     "utf-8"
   );

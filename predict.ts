@@ -31,7 +31,7 @@ function getHalfTime(time: Date) {
 }
 
 //Model
-const model = JSON.parse(readFileSync("predict_models.json", "utf-8"));
+const model = JSON.parse(readFileSync(process.env.IS_SERVERLESS ? "/tmp/predict_models.json" : "predict_models.json", "utf-8"));
 
 async function getScores(rank: number) {
     let response = await axios.get(`https://api.sekai.best/event/${event}/rankings/graph?rank=${rank}`);
@@ -203,7 +203,7 @@ async function predict(rank: number) {
     }
 }
 
-async function predictAll() {
+export async function predictAll() {
     await updateEvent();
     let outJson = {};
     let count = 0;
@@ -218,8 +218,8 @@ async function predictAll() {
     }
 
     if (count > 0) {
-        writeFileSync("out-predict.json", JSON.stringify(outJson));
+        writeFileSync(process.env.IS_SERVERLESS ? "/tmp/out-predict.json" : "out-predict.json", JSON.stringify(outJson));
     }
 }
 
-predictAll()
+// predictAll()
