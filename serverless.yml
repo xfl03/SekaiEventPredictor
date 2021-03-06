@@ -17,3 +17,4 @@ functions:
       REDIS_URL: redis://redis-master.database/
       MINIO_END_POINT: minio.dnaroma.eu
       MINIO_BUCKET: sekai-best-assets
+      IS_SERVERLESS: "true"
