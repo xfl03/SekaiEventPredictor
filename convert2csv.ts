@@ -82,7 +82,7 @@ let outCSV = "T,PT\r\n";
 retObj.forEach(it => {
     outCSV += dateToString(it.time) + "," + it.pt + "\r\n"
 })
-writeFileSync(csvFile, outCSV);
+//writeFileSync(csvFile, outCSV);
 
 //Gen day PT
 let dayPT: number[] = [];

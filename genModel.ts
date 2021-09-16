@@ -1,11 +1,13 @@
 import {readFileSync, writeFileSync, existsSync} from 'fs';
 import {OutRanking} from "./Struct";
 
-const ranks = [100, 200, 300, 400, 500, 1000, 2000, 3000, 4000, 5000, 10000, 20000, 30000, 40000, 50000, 100000];
+const TARGET_EVENT_TYPE = process.argv.length > 2 ? process.argv[2] : "marathon";
+const ranks = [50, 100, 200, 300, 400, 500, 1000, 2000, 3000, 4000, 5000, 10000, 20000, 30000, 40000, 50000, 100000];
 let events = 8;
 if (existsSync(`lastEndedEventId`)) {
     events = parseInt(readFileSync(`lastEndedEventId`, 'utf-8'))
 }
+let eventData = JSON.parse(readFileSync(`events.json`, 'utf-8')) as Array<any>
 
 let dayModel = {};
 let lastModel = {};
@@ -35,6 +37,11 @@ ranks.forEach(it => {
 
     //Process all event data, skip first event
     for (let i = 2; i <= events; ++i) {
+        if (i === 18) continue;//Skip first cheerful carnival
+        let eventType = eventData.filter(it => it.id === i)[0].eventType;
+        if (eventType !== TARGET_EVENT_TYPE) {
+            continue;
+        }
         let data = JSON.parse(readFileSync(`out/out_${i}_${it}.json`, 'utf-8')) as OutRanking
         let percents = [0];
         let days = data.dayScores.length;
@@ -121,4 +128,4 @@ let outModel = {
     lastDayPeriod: lastDayModel,
 }
 
-writeFileSync("predict_models.json", JSON.stringify(outModel, null, 4))
+writeFileSync(`predict_models_${TARGET_EVENT_TYPE}.json`, JSON.stringify(outModel, null, 2))
