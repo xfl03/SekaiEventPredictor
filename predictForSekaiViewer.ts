@@ -8,7 +8,12 @@ const client = redis.createClient(process.env.REDIS_URL);
 
 async function downloadModel() {
   const response = await axios.get(
-    `https://${process.env.MINIO_END_POINT}/${process.env.MINIO_BUCKET}/predict_models_marathon.json`
+    `https://${process.env.MINIO_END_POINT}/${process.env.MINIO_BUCKET}/predict_models_marathon.json`,
+    {
+      headers: {
+        "user-agent": "Mozilla",
+      },
+    }
   );
   writeFileSync(
     process.env.IS_SERVERLESS ? "/tmp/predict_models.json" : "predict_models_marathon.json",
@@ -17,7 +22,12 @@ async function downloadModel() {
   );
   
   response = await axios.get(
-    `https://${process.env.MINIO_END_POINT}/${process.env.MINIO_BUCKET}/predict_models_cheerful_carnival.json`
+    `https://${process.env.MINIO_END_POINT}/${process.env.MINIO_BUCKET}/predict_models_cheerful_carnival.json`,
+    {
+      headers: {
+        "user-agent": "Mozilla",
+      },
+    }
   );
   writeFileSync(
     process.env.IS_SERVERLESS ? "/tmp/predict_models.json" : "predict_models_cheerful_carnival.json",

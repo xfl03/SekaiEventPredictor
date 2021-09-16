@@ -48,10 +48,7 @@ async function updateEvent() {
     debugJson["eventStartTime"] = eventStartTime;
 }
 
-const ranks = [100, 200, 300, 400, 500, 1000, 2000, 3000, 4000, 5000, 10000, 20000, 30000, 40000, 50000, 100000];
-//const ranks = [100, 200, 300, 500, 1000, 2000, 3000, 5000, 10000, 20000, 30000, 50000, 100000];
-//const ranks = [100, 200, 500, 1000, 2000, 5000, 10000, 20000, 50000, 100000];
-//const ranks = [1000, 5000, 10000];
+const ranks = [100, 200, 500, 1000, 2000, 5000, 10000, 20000, 50000, 100000];
 
 function getHalfTime(time: Date) {
     let half =
