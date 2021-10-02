@@ -1,19 +1,23 @@
 service: sekai-event-predictor
 
 provider:
-  name: kubeless
-  runtime: nodejs14
+  name: openwhisk
+  runtime: nodejs:14
+  ignore_certs: true
 
 plugins:
-  - serverless-kubeless
+  - serverless-openwhisk
   - serverless-plugin-typescript
+
+configValidationMode: off
+frameworkVersion: ^2.33.1
 
 functions:
   predict:
     handler: predictForSekaiViewer.serverless
     events:
-      - schedule: "*/30 * * * *"
-    environment:
+      - schedule: cron(*/30 * * * *)
+    parameters:
       REDIS_URL: redis://redis-master.database/
       MINIO_END_POINT: minio.dnaroma.eu
       MINIO_BUCKET: sekai-best-assets

@@ -4,10 +4,8 @@ import * as redis from "redis";
 import axios from "axios";
 import { predictAll } from "./predict";
 
-const client = redis.createClient(process.env.REDIS_URL);
-
 async function downloadModel() {
-  const response = await axios.get(
+  let response = await axios.get(
     `https://${process.env.MINIO_END_POINT}/${process.env.MINIO_BUCKET}/predict_models_marathon.json`,
     {
       headers: {
@@ -16,7 +14,7 @@ async function downloadModel() {
     }
   );
   writeFileSync(
-    process.env.IS_SERVERLESS ? "/tmp/predict_models.json" : "predict_models_marathon.json",
+    process.env.IS_SERVERLESS ? "/tmp/predict_models_marathon.json" : "predict_models_marathon.json",
     JSON.stringify(response.data),
     "utf-8"
   );
@@ -30,13 +28,15 @@ async function downloadModel() {
     }
   );
   writeFileSync(
-    process.env.IS_SERVERLESS ? "/tmp/predict_models.json" : "predict_models_cheerful_carnival.json",
+    process.env.IS_SERVERLESS ? "/tmp/predict_models_cheerful_carnival.json" : "predict_models_cheerful_carnival.json",
     JSON.stringify(response.data),
     "utf-8"
   );
 }
 
 async function main() {
+  const client = redis.createClient(process.env.REDIS_URL);
+
   await downloadModel();
   await predictAll();
 
@@ -53,10 +53,14 @@ async function main() {
   client.set(`predict-ts`, new Date().getTime());
 }
 
-export async function serverless() {
-  process.env.IS_SERVERLESS = "true";
+export async function serverless(params) {
+  process.env.REDIS_URL = params.REDIS_URL;
+  process.env.MINIO_END_POINT = params.MINIO_END_POINT;
+  process.env.MINIO_BUCKET = params.MINIO_BUCKET;
+  process.env.IS_SERVERLESS = params.IS_SERVERLESS;
+
   await main();
-  return "Finished";
+  return {status: "Finished"};
 }
 
 require.main === module && main();
