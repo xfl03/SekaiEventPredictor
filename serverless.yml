@@ -9,14 +9,14 @@ plugins:
   - serverless-openwhisk
   - serverless-plugin-typescript
 
-configValidationMode: off
-frameworkVersion: ^2.33.1
+# configValidationMode: off
+# frameworkVersion: ^2.33.1
 
 functions:
   predict:
     handler: predictForSekaiViewer.serverless
     events:
-      - schedule: cron(*/30 * * * *)
+      - http: POST /predict
     parameters:
       REDIS_URL: redis://redis-master.database/
       MINIO_END_POINT: minio.dnaroma.eu
