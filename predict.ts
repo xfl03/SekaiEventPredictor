@@ -1,16 +1,16 @@
 import axios from "axios";
-import {EventData, EventRanking} from "./Struct";
-import {readFileSync, writeFileSync} from "fs";
+import { EventData, EventRanking } from "./Struct";
+import { readFileSync, writeFileSync } from "fs";
 import HttpsProxyAgent from 'https-proxy-agent';
 
-let agent = HttpsProxyAgent('http://localhost:1090');
+let agent = HttpsProxyAgent('http://localhost:1087');
 
 let proxy = false;
-let debug = false;
+let debug = true;
 let event = 9;
 let days = 8;
 let eventStartTime = 0;
-let lastDayEnd = 0;
+//let lastDayEnd = 0;
 let eventType = "marathon";
 
 let debugJson = {
@@ -20,9 +20,10 @@ let debugJson = {
 async function updateEvent() {
     const response = await axios.get(
         `https://strapi.sekai.best/sekai-current-event`, {
-            httpsAgent: proxy ? agent : null,
-        }
+        httpsAgent: proxy ? agent : null,
+    }
     );
+    //console.log(response)
     //console.log(response.data);
     event = response.data.eventId;
     eventType = response.data.eventJson.eventType;
@@ -46,9 +47,13 @@ async function updateEvent() {
     debugJson["days"] = days;
     debugJson["eventDayNow"] = eventDayNow;
     debugJson["eventStartTime"] = eventStartTime;
+    debugJson["predictTime"] = Date.now();
 }
 
-const ranks = [100, 200, 500, 1000, 2000, 5000, 10000, 20000, 50000, 100000];
+const ranks = [100, 200, 300, 400, 500, 1000, 2000, 3000, 4000, 5000, 10000, 20000, 30000, 40000, 50000, 100000];
+//const ranks = [100, 200, 300, 500, 1000, 2000, 3000, 5000, 10000, 20000, 30000, 50000, 100000];
+//const ranks = [100, 200, 500, 1000, 2000, 5000, 10000, 20000, 50000, 100000];
+//const ranks = [1000, 5000, 10000];
 
 function getHalfTime(time: Date) {
     let half =
@@ -63,8 +68,8 @@ function getHalfTimeFromBegin(time: Date) {
 async function getScores(rank: number) {
     let response = await axios.get(
         `https://api.sekai.best/event/${event}/rankings/graph?rank=${rank}`, {
-            httpsAgent: proxy ? agent : null,
-        }
+        httpsAgent: proxy ? agent : null,
+    }
     );
     let data = response.data as EventData;
     let scores = data.data.eventRankings;
@@ -100,29 +105,58 @@ async function getScores(rank: number) {
     return scores;
 }
 
-function processDayScores(obj: EventRanking[]) {
+function processDayScores(obj: EventRanking[], model: any, rank: number) {
     let dayPT: number[] = [];
-    obj.forEach((it) => {
-        if (it.timestamp.getUTCHours() === 15 && it.timestamp.getUTCMinutes() === 0)
-            dayPT.push(it.score);
+    for (let i = 0; i <= 15; ++i) {
+        dayPT.push(0);
+    }
+
+    //console.log(new Date(eventStartTime))
+    obj.forEach((it, i) => {
+        let day = Math.floor(
+            (it.timestamp.getTime() - (eventStartTime - 15 * 3600 * 1000)) /
+            1000 /
+            3600 /
+            24
+        );
+
+        //console.log(it.timestamp);
+        //console.log(day)
+
+        if (it.timestamp.getUTCHours() === 15 && it.timestamp.getUTCMinutes() === 0) {
+            dayPT[day - 1] = it.score;
+        }
+
+        if (i >= 1 && day >= 1 && dayPT[day - 1] === 0) {
+            let pre = obj[i - 1];
+            let lastDayEndTime = new Date(eventStartTime - 15 * 3600 * 1000 + day * 24 * 3600 * 1000);
+            //Ensure pre is in past day
+            if(lastDayEndTime.getTime()<pre.timestamp.getTime()) return;
+            //console.log(pre.timestamp)
+            //console.log(getHalfTime(pre.timestamp))
+            let percentPre = model["dayPeriod"][rank][getHalfTime(pre.timestamp)];
+            let percentNow = model["dayPeriod"][rank][getHalfTime(it.timestamp)];
+            //console.log(percentPre);
+            //console.log(percentNow);
+            let scorePerDay = (it.score - pre.score) / (percentNow+1-percentPre);
+            //console.log(scorePerDay)
+            let averageScore = scorePerDay * (1-percentPre);
+            //console.log(averageScore)
+            dayPT[day - 1] = averageScore + pre.score;
+        }
     });
     return dayPT;
 }
 
 function processToday(obj: EventRanking[]): number[] {
     let start = 0;
+    //console.log(new Date(eventStartTime));
     obj.forEach((it, i) => {
         if (
             it.timestamp.getUTCHours() === 15 &&
             it.timestamp.getUTCMinutes() === 0
         ) {
             start = i;
-            lastDayEnd = Math.floor(
-                (it.timestamp.getTime() - (eventStartTime - 15 * 3600 * 1000)) /
-                1000 /
-                3600 /
-                24
-            );
         }
     });
     let today = [];
@@ -184,9 +218,12 @@ function processLSE(today: number[], target: number[]) {
 }
 
 async function predict(rank: number) {
+    console.log()
     //Debug Info
     let debugInfo = {
         scores: [],
+        firstUsefulDay: 0,
+        lastDayEnd: 0,
         dayScores: [],
         scorePerNormalDay: 0,
         todayScore: 0,
@@ -217,15 +254,29 @@ async function predict(rank: number) {
     })
 
     //Get day score
-    let day = processDayScores(scores);
-    if (day.length === 0) {
+    let day = processDayScores(scores, model, rank);
+    let firstUsefulDay = 0;
+    let lastDayEnd = 0;
+    day.forEach((it, i) => {
+        if (firstUsefulDay === 0 && it > 0) {
+            firstUsefulDay = i + 1;
+        }
+        if (it > 0) {
+            lastDayEnd = i + 1;
+        }
+    })
+    if (firstUsefulDay <= 0) {
         console.log(`T${rank} Cannot predict: Event just started in a day`);
         return 0;
     }
+    debugInfo.firstUsefulDay = firstUsefulDay;
+    if (debug) console.log(`firstUsefulDay:${firstUsefulDay}`);
     debugInfo.dayScores = day;
+    if (debug) console.log(`day:${day}`);
 
     //Get today score
-    let todayBeginScore = day[day.length - 1];
+    if (debug) console.log(`lastDayEnd:${lastDayEnd}`);
+    let todayBeginScore = day[lastDayEnd - 1];
     if (debug) console.log(`todayBeginScore:${todayBeginScore}`);
     let todayScores = processToday(scores);
     if (debug) console.log(`todayScores:${todayScores}`);
@@ -242,10 +293,11 @@ async function predict(rank: number) {
     //Get predict
     let isLastDay = lastDayEnd === days;
     if (debug) console.log(`lastEndDay:${lastDayEnd}`);
+    debugInfo.lastDayEnd=lastDayEnd;
     if (!isLastDay) {
         //Not last day
-
-        if (debug) console.log(`day0:${day[0]}`);
+        let day0 = day[firstUsefulDay - 1];
+        if (debug) console.log(`day0:${day0}`);
         let todayProcess = model["dayPeriod"][rank][halfTime];
         if (debug) console.log(`todayProcess:${todayProcess}`);
 
@@ -257,8 +309,8 @@ async function predict(rank: number) {
 
         //Weighted mean
         let scorePerNormalDay =
-            (todayBeginScore - day[0] + todayScore * todayProcess) /
-            (lastDayEnd - 1 + todayProcess);
+            (todayBeginScore - day0 + todayScore * todayProcess) /
+            (lastDayEnd - firstUsefulDay + todayProcess);
         if (debug) console.log(`scorePerNormalDay:${scorePerNormalDay}`);
         debugInfo.scorePerNormalDay = scorePerNormalDay;
         let scoreNormalDays = scorePerNormalDay * (days - 1);
@@ -313,7 +365,11 @@ async function predict(rank: number) {
         let todayScore =
             todayScoreTodayPredict * Math.min(1, todayProcess * 2) +
             todayScorePastPredict * Math.max(0, 1 - todayProcess * 2);
-        return Math.round(todayBeginScore + todayScore);
+
+        let result = Math.round(todayBeginScore + todayScore);
+        debugInfo.result = result;
+        debugJson.ranks[rank] = debugInfo;
+        return result;
     }
 }
 
@@ -341,6 +397,7 @@ export async function predictAll(begin: number = 0) {
 
     if (debug) {
         writeFileSync("predict-debug.json", JSON.stringify(debugJson));
+        writeFileSync("../data-card-view/data/predict-debug.json", JSON.stringify(debugJson));
     }
 }
 
