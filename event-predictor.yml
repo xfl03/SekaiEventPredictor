@@ -1,0 +1,21 @@
+version: 1.0
+provider:
+  name: openfaas
+  gateway: https://lambda.dnaroma.eu
+functions:
+  event-predictor:
+    lang: node16-typescript
+    handler: ./event-predictor/dist
+    image: docker.dnaroma.eu/event-predictor:latest
+    annotations:
+      topic: cron-function
+      schedule: "*/10 * * * *"
+    environment:
+      REDIS_URL: redis://redis-master.database/
+      MINIO_END_POINT: storage.sekai.best
+      MINIO_BUCKET: sekai-best-assets
+      IS_SERVERLESS: "true"
+      write_timeout: 1m
+      read_timeout: 1m
+      exec_timeout: 1m
+

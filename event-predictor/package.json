@@ -1,0 +1,25 @@
+{
+  "name": "openfaas-function",
+  "version": "1.0.0",
+  "description": "OpenFaaS Function",
+  "main": "dist/handler.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 0",
+    "build": "tsc",
+    "faas:build": "yarn build && gulp"
+  },
+  "keywords": [],
+  "author": "OpenFaaS Ltd",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^17.0.18",
+    "axios": "^0.21.1",
+    "dateformat": "^4.0.0",
+    "gulp": "^4.0.2",
+    "https-proxy-agent": "^5.0.1",
+    "minio": "^7.0.18",
+    "redis": "^4.0.2",
+    "typescript": "^4.5.5",
+    "yarn": "^1.22.17"
+  }
+}

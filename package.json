@@ -18,7 +18,7 @@
     "dateformat": "^4.0.0",
     "https-proxy-agent": "^5.0.0",
     "minio": "^7.0.18",
-    "redis": "^3.0.2"
+    "redis": "^4.0.2"
   },
   "devDependencies": {
     "@types/minio": "^7.0.7",

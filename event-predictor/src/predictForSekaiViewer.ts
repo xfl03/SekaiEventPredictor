@@ -34,7 +34,7 @@ async function downloadModel() {
   );
 }
 
-async function main() {
+export async function main() {
   const client = redis.createClient({url: process.env.REDIS_URL});
   await client.connect();
   await client.ping();
@@ -54,15 +54,3 @@ async function main() {
   }
   client.set(`predict-ts`, new Date().getTime());
 }
-
-export async function serverless(params) {
-  process.env.REDIS_URL = params.REDIS_URL;
-  process.env.MINIO_END_POINT = params.MINIO_END_POINT;
-  process.env.MINIO_BUCKET = params.MINIO_BUCKET;
-  process.env.IS_SERVERLESS = params.IS_SERVERLESS;
-
-  await main();
-  return {status: "Finished"};
-}
-
-require.main === module && main();

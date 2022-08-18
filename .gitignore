@@ -107,3 +107,6 @@ data/
 out/
 out-predict.json
 predict_models.json
+template/
+template
+build

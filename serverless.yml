@@ -17,6 +17,7 @@ functions:
     handler: predictForSekaiViewer.serverless
     events:
       - http: POST /predict
+      # - schedule: cron(*/5 * * * *)
     parameters:
       REDIS_URL: redis://redis-master.database/
       MINIO_END_POINT: minio.dnaroma.eu
